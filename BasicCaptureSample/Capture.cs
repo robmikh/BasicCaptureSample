@@ -41,6 +41,7 @@ namespace BasicCaptureSample
                     2,
                     item.Size);
                 _session = _framePool.CreateCaptureSession(item);
+                _lastSize = item.Size;
 
                 _framePool.FrameArrived += OnFrameArrived;
 
@@ -86,16 +87,38 @@ namespace BasicCaptureSample
 
         private void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
         {
+            var newSize = false;
+
             using (var frame = sender.TryGetNextFrame())
             {
+                if (frame.ContentSize.Width != _lastSize.Width ||
+                    frame.ContentSize.Height != _lastSize.Height)
+                {
+                    // The thing we have been capturing has changed size.
+                    // We need to resize our swap chain first, then blit the pixels.
+                    // After we do that, retire the frame and then recreate our frame pool.
+                    newSize = true;
+                    _lastSize = frame.ContentSize;
+                    _swapChain.ResizeBuffers(_lastSize.Width, _lastSize.Height);
+                }
+
                 using (var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface))
                 using (var drawingSession = _swapChain.CreateDrawingSession(Colors.Transparent))
                 {
                     drawingSession.DrawImage(bitmap);
                 }
             }
-            
+
             _swapChain.Present();
+
+            if (newSize)
+            {
+                _framePool.Recreate(
+                    _device,
+                    DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                    2,
+                    _lastSize);
+            }
         }
 
         private GraphicsCaptureItem _item;
