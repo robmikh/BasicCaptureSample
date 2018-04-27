@@ -107,7 +107,8 @@ namespace BasicCaptureSample
                 {
                     drawingSession.DrawImage(bitmap);
                 }
-            }
+
+            } // retire the frame
 
             _swapChain.Present();
 
