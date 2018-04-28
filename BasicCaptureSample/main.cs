@@ -93,7 +93,7 @@ namespace BasicCaptureSample
 
         private async Task StartCaptureAsync()
         {
-            var picker = new Windows.Graphics.Capture.GraphicsCapturePicker();
+            var picker = new GraphicsCapturePicker();
             var item = await picker.PickSingleItemAsync();
 
             if (item != null)
