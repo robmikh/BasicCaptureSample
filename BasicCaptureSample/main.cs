@@ -47,7 +47,13 @@ namespace BasicCaptureSample
             _content.Shadow = shadow;
             _root.Children.InsertAtTop(_content);
 
-            var ignored = StartCaptureAsync();
+            // We can't just call the picker here, because no one is pumping messages yet.
+            // By asking the dispatcher for our UI thread to run this, we ensure that the
+            // message pump is pumping messages by the time this runs.
+            var ignored =_window.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                var ignoredTask = StartCaptureAsync();
+            });
 
             _window.Activate();
             _window.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
