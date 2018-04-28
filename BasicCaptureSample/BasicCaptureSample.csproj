@@ -94,6 +94,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Capture.cs" />
+    <Compile Include="DoubleTapHelper.cs" />
     <Compile Include="main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

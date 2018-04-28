@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Graphics.Canvas;
+using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Core;
@@ -46,6 +47,8 @@ namespace BasicCaptureSample
             shadow.Mask = _brush;
             _content.Shadow = shadow;
             _root.Children.InsertAtTop(_content);
+            
+            _device = new Microsoft.Graphics.Canvas.CanvasDevice();
 
             // We can't just call the picker here, because no one is pumping messages yet.
             // By asking the dispatcher for our UI thread to run this, we ensure that the
@@ -55,12 +58,21 @@ namespace BasicCaptureSample
                 var ignoredTask = StartCaptureAsync();
             });
 
+            _doubleTapHelper = new DoubleTapHelper(_window);
+            _doubleTapHelper.DoubleTapped += OnDoubleTapped;
             _window.Activate();
             _window.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
         }
 
+        private void OnDoubleTapped(object sender, EventArgs e)
+        {
+            StopCapture();
+            var ignored = StartCaptureAsync();
+        }
+
         public void Uninitialize()
         {
+            StopCapture();
             _compositor.Dispose();
         }
 
@@ -68,14 +80,22 @@ namespace BasicCaptureSample
         {
             var picker = new Windows.Graphics.Capture.GraphicsCapturePicker();
             var item = await picker.PickSingleItemAsync();
-            var device = new Microsoft.Graphics.Canvas.CanvasDevice();
 
-            _capture = new Capture(device, item);
+            if (item != null)
+            {
+                _capture = new Capture(_device, item);
 
-            var surface = _capture.CreateSurface(_compositor);
-            _brush.Surface = surface;
+                var surface = _capture.CreateSurface(_compositor);
+                _brush.Surface = surface;
 
-            _capture.StartCapture();
+                _capture.StartCapture();
+            }
+        }
+
+        private void StopCapture()
+        {
+            _capture?.Dispose();
+            _brush.Surface = null;
         }
 
         private CoreWindow _window;
@@ -87,7 +107,9 @@ namespace BasicCaptureSample
         private SpriteVisual _content;
         private CompositionSurfaceBrush _brush;
 
+        private CanvasDevice _device;
         private Capture _capture;
+        private DoubleTapHelper _doubleTapHelper;
     }
 
     public class MainViewFactory : IFrameworkViewSource
