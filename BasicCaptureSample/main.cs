@@ -3,9 +3,11 @@ using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.Core;
+using Windows.Graphics.Capture;
 using Windows.UI;
 using Windows.UI.Composition;
 using Windows.UI.Core;
+using Windows.UI.Popups;
 
 namespace BasicCaptureSample
 {
@@ -35,31 +37,44 @@ namespace BasicCaptureSample
             _root.RelativeSizeAdjustment = Vector2.One;
             _target.Root = _root;
 
-            _content.AnchorPoint = new Vector2(0.5f, 0.5f);
-            _content.RelativeOffsetAdjustment = new Vector3(0.5f, 0.5f, 0);
-            _content.RelativeSizeAdjustment = Vector2.One;
-            _content.Size = new Vector2(-80, -80);
-            _content.Brush = _brush;
-            _brush.HorizontalAlignmentRatio = 0.5f;
-            _brush.VerticalAlignmentRatio = 0.5f;
-            _brush.Stretch = CompositionStretch.Uniform;
-            var shadow = _compositor.CreateDropShadow();
-            shadow.Mask = _brush;
-            _content.Shadow = shadow;
-            _root.Children.InsertAtTop(_content);
-            
-            _device = new Microsoft.Graphics.Canvas.CanvasDevice();
-
-            // We can't just call the picker here, because no one is pumping messages yet.
-            // By asking the dispatcher for our UI thread to run this, we ensure that the
-            // message pump is pumping messages by the time this runs.
-            var ignored =_window.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            if (GraphicsCaptureSession.IsSupported())
             {
-                var ignoredTask = StartCaptureAsync();
-            });
+                _content.AnchorPoint = new Vector2(0.5f, 0.5f);
+                _content.RelativeOffsetAdjustment = new Vector3(0.5f, 0.5f, 0);
+                _content.RelativeSizeAdjustment = Vector2.One;
+                _content.Size = new Vector2(-80, -80);
+                _content.Brush = _brush;
+                _brush.HorizontalAlignmentRatio = 0.5f;
+                _brush.VerticalAlignmentRatio = 0.5f;
+                _brush.Stretch = CompositionStretch.Uniform;
+                var shadow = _compositor.CreateDropShadow();
+                shadow.Mask = _brush;
+                _content.Shadow = shadow;
+                _root.Children.InsertAtTop(_content);
 
-            _doubleTapHelper = new DoubleTapHelper(_window);
-            _doubleTapHelper.DoubleTapped += OnDoubleTapped;
+                _device = new CanvasDevice();
+
+                // We can't just call the picker here, because no one is pumping messages yet.
+                // By asking the dispatcher for our UI thread to run this, we ensure that the
+                // message pump is pumping messages by the time this runs.
+                var ignored = _window.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    var ignoredTask = StartCaptureAsync();
+                });
+
+                _doubleTapHelper = new DoubleTapHelper(_window);
+                _doubleTapHelper.DoubleTapped += OnDoubleTapped;
+            }
+            else
+            {
+                var ignored = _window.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
+                {
+                    var dialog = new MessageDialog("Screen capture is not supported on this device for this release of Windows!");
+
+                    await dialog.ShowAsync();
+                });
+            }
+            
             _window.Activate();
             _window.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
         }
