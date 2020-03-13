@@ -53,6 +53,7 @@ namespace BasicCaptureSample
                 _root.Children.InsertAtTop(_content);
 
                 _device = new CanvasDevice();
+                _device.DeviceLost += OnDeviceLost;
 
                 // We can't just call the picker here, because no one is pumping messages yet.
                 // By asking the dispatcher for our UI thread to run this, we ensure that the
@@ -79,6 +80,19 @@ namespace BasicCaptureSample
             _window.Dispatcher.ProcessEvents(CoreProcessEventsOption.ProcessUntilQuit);
         }
 
+        private void OnDeviceLost(CanvasDevice sender, object args)
+        {
+            sender.Dispose();
+            _device = new CanvasDevice();
+
+            if (_item != null)
+            {
+                var item = _item;
+                StopCapture();
+                StartCaptureForItem(item);
+            }
+        }
+
         private void OnDoubleTapped(object sender, EventArgs e)
         {
             StopCapture();
@@ -98,19 +112,33 @@ namespace BasicCaptureSample
 
             if (item != null)
             {
-                _capture = new Capture(_device, item);
-
-                var surface = _capture.CreateSurface(_compositor);
-                _brush.Surface = surface;
-
-                _capture.StartCapture();
+                StartCaptureForItem(item);
             }
+        }
+
+        private void StartCaptureForItem(GraphicsCaptureItem item)
+        {
+            _capture = new Capture(_device, item);
+
+            var surface = _capture.CreateSurface(_compositor);
+            _brush.Surface = surface;
+
+            _item = item;
+            _item.Closed += OnCaptureItemClosed;
+            _capture.StartCapture();
+        }
+
+        private void OnCaptureItemClosed(GraphicsCaptureItem sender, object args)
+        {
+            StopCapture();
         }
 
         private void StopCapture()
         {
             _capture?.Dispose();
             _brush.Surface = null;
+            _item.Closed -= OnCaptureItemClosed;
+            _item = null;
         }
 
         private CoreWindow _window;
@@ -124,6 +152,7 @@ namespace BasicCaptureSample
 
         private CanvasDevice _device;
         private Capture _capture;
+        private GraphicsCaptureItem _item;
         private DoubleTapHelper _doubleTapHelper;
     }
 

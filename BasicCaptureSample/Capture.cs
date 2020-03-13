@@ -25,35 +25,15 @@ namespace BasicCaptureSample
             // TODO: Dpi?
             _swapChain = new CanvasSwapChain(_device, item.Size.Width, item.Size.Height, 96);
 
-            _dispatcherQueueController = DispatcherQueueController.CreateOnDedicatedThread();
-            _dispatcherQueue = _dispatcherQueueController.DispatcherQueue;
-
-            // We don't want to return from the constructor untill the frame pool and
-            // the capture session are both initialized. We could do this on the UI thread,
-            // but you really shouldn't. This will update as fast as the screen refresh rate,
-            // so it would cause performance issues on the UI thread.
-            var wait = new AutoResetEvent(false);
-            var success = _dispatcherQueue.TryEnqueue(() =>
-            {
-                _framePool = Direct3D11CaptureFramePool.Create(
+            _framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
                     _device,
                     DirectXPixelFormat.B8G8R8A8UIntNormalized,
                     2,
                     item.Size);
-                _session = _framePool.CreateCaptureSession(item);
-                _lastSize = item.Size;
+            _session = _framePool.CreateCaptureSession(item);
+            _lastSize = item.Size;
 
-                _framePool.FrameArrived += OnFrameArrived;
-
-                wait.Set();
-            });
-
-            if (!success)
-            {
-                throw new Exception("Could not enqueue work!");
-            }
-
-            wait.WaitOne();
+            _framePool.FrameArrived += OnFrameArrived;
         }
 
         public void StartCapture()
@@ -76,49 +56,51 @@ namespace BasicCaptureSample
             _framePool = null;
             _session = null;
             _item = null;
-
-            if (_dispatcherQueueController != null)
-            {
-                var ignored = _dispatcherQueueController.ShutdownQueueAsync();
-                _dispatcherQueueController = null;
-                _dispatcherQueue = null;
-            }
         }
 
         private void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
         {
             var newSize = false;
 
-            using (var frame = sender.TryGetNextFrame())
+            try
             {
-                if (frame.ContentSize.Width != _lastSize.Width ||
-                    frame.ContentSize.Height != _lastSize.Height)
+                using (var frame = sender.TryGetNextFrame())
                 {
-                    // The thing we have been capturing has changed size.
-                    // We need to resize our swap chain first, then blit the pixels.
-                    // After we do that, retire the frame and then recreate our frame pool.
-                    newSize = true;
-                    _lastSize = frame.ContentSize;
-                    _swapChain.ResizeBuffers(_lastSize.Width, _lastSize.Height);
-                }
+                    if (frame.ContentSize.Width != _lastSize.Width ||
+                        frame.ContentSize.Height != _lastSize.Height)
+                    {
+                        // The thing we have been capturing has changed size.
+                        // We need to resize our swap chain first, then blit the pixels.
+                        // After we do that, retire the frame and then recreate our frame pool.
+                        newSize = true;
+                        _lastSize = frame.ContentSize;
+                        _swapChain.ResizeBuffers(_lastSize.Width, _lastSize.Height);
+                    }
 
-                using (var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface))
-                using (var drawingSession = _swapChain.CreateDrawingSession(Colors.Transparent))
+                    using (var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface))
+                    using (var drawingSession = _swapChain.CreateDrawingSession(Colors.Transparent))
+                    {
+                        drawingSession.DrawImage(bitmap);
+                    }
+
+                } // retire the frame
+
+                _swapChain.Present();
+
+                if (newSize)
                 {
-                    drawingSession.DrawImage(bitmap);
+                    _framePool.Recreate(
+                        _device,
+                        DirectXPixelFormat.B8G8R8A8UIntNormalized,
+                        2,
+                        _lastSize);
                 }
-
-            } // retire the frame
-
-            _swapChain.Present();
-
-            if (newSize)
+            } 
+            catch (Exception ex) when (_device.IsDeviceLost(ex.HResult))
             {
-                _framePool.Recreate(
-                    _device,
-                    DirectXPixelFormat.B8G8R8A8UIntNormalized,
-                    2,
-                    _lastSize);
+                _session?.Dispose();
+                _device.RaiseDeviceLost();
+                return;
             }
         }
 
@@ -129,8 +111,5 @@ namespace BasicCaptureSample
 
         private CanvasDevice _device;
         private CanvasSwapChain _swapChain;
-
-        private DispatcherQueueController _dispatcherQueueController;
-        private DispatcherQueue _dispatcherQueue;
     }
 }
