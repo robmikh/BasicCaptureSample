@@ -5,7 +5,7 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" 
   xmlns:uap6="http://schemas.microsoft.com/appx/manifest/uap/windows10/6" 
   IgnorableNamespaces="uap mp uap6">
-  <Identity Name="09dfaa71-b4c8-43f3-b7a6-da42e289199f" Publisher="CN=romikh" Version="1.0.0.0" />
+  <Identity Name="09dfaa71-b4c8-43f3-b7a6-da42e289199f" Publisher="CN=robmi" Version="1.0.0.0" />
   <mp:PhoneIdentity PhoneProductId="09dfaa71-b4c8-43f3-b7a6-da42e289199f" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>BasicCaptureSample</DisplayName>
